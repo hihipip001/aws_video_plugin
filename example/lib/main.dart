@@ -29,11 +29,9 @@ class MyAppScaffoldState extends State<MyAppScaffold> {
   Uint8List image;
 
   VlcPlayerController _videoViewController;
-  VlcPlayerController _videoViewController2;
   bool isPlaying = true;
-  double sliderValue = 0.0;
-  double currentPlayerTime = 0;
-  double volumeValue = 100;
+  String qualityName = '';
+  String state = '';
 
   @override
   void initState() {
@@ -41,27 +39,29 @@ class MyAppScaffoldState extends State<MyAppScaffold> {
       _videoViewController.play();
     });
     _videoViewController.addListener(() {
+      if( _videoViewController == null ) return ;
+      qualityName = _videoViewController.qualityName;
+      state = _videoViewController.playingState.toString();
+
+      print("qualityName=${_videoViewController.qualityName}");
+      print("_controller.playingState=${_videoViewController.duration}");
+      print("_controller.playingState=${_videoViewController.playingState}");
       setState(() {});
     });
 
-    _videoViewController2 = new VlcPlayerController(onInit: () {
-      _videoViewController2.play();
-    });
-    _videoViewController2.addListener(() {
-      setState(() {});
-    });
 
-    Timer.periodic(Duration(seconds: 1), (Timer timer) {
-      String state = _videoViewController2.playingState.toString();
-      if (this.mounted) {
-        setState(() {
-          if (state == "PlayingState.PLAYING" &&
-              sliderValue < _videoViewController2.duration.inSeconds) {
-            sliderValue = _videoViewController2.position.inSeconds.toDouble();
-          }
-        });
-      }
-    });
+
+//    Timer.periodic(Duration(seconds: 1), (Timer timer) {
+//      String state = _videoViewController2.playingState.toString();
+//      if (this.mounted) {
+//        setState(() {
+//          if (state == "PlayingState.PLAYING" &&
+//              sliderValue < _videoViewController2.duration.inSeconds) {
+//            sliderValue = _videoViewController2.position.inSeconds.toDouble();
+//          }
+//        });
+//      }
+//    });
 
     super.initState();
   }
@@ -77,55 +77,65 @@ class MyAppScaffoldState extends State<MyAppScaffold> {
         onPressed: null,
       ),
       body: Center(
-        child: ListView(
-          shrinkWrap: true,
-          children: <Widget>[
-            SizedBox(
-              height: 360,
-              child: new VlcPlayer(
-                aspectRatio: 16 / 9,
-                url:
-                //"rtmp://114.34.136.103/live/user3",
-                //"https://ai.casttalk.me:8888/hls/user3.m3u8",
-                "https://fcc3ddae59ed.us-west-2.playback.live-video.net/api/video/v1/us-west-2.893648527354.channel.DmumNckWFTqz.m3u8",
-                controller: _videoViewController,
-                // Play with vlc options
-                options: [
-                  '--quiet',
-                  '--no-drop-late-frames',
-                  '--no-skip-frames',
-                  '--rtsp-tcp'
-                ],
-                placeholder: Container(
-                  height: 250.0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[CircularProgressIndicator()],
-                  ),
-                ),
-              ),
-            ),
+        child: _buildVideo(),
+      ),
+    );
+  }
 
+
+
+
+  _buildVideo(){
+    return Stack(
+      children: [
+        _buildMyWidget(),
+        Column(
+          children: [
+            Text(qualityName,style:TextStyle(fontSize: 50,color:Colors.red)),
+            Text(state,style:TextStyle(fontSize: 50,color:Colors.red)),
           ],
+        )
+      ],
+    );
+
+
+
+  }
+
+  _buildMyWidget(){
+    return VlcPlayer(
+      url:
+      //"rtmp://114.34.136.103/live/user3",
+      "https://ai.casttalk.me:8888/hls/user3.m3u8",
+      //"https://fcc3ddae59ed.us-west-2.playback.live-video.net/api/video/v1/us-west-2.893648527354.channel.DmumNckWFTqz.m3u8",
+     // "https://032ec9cda8db.us-east-1.playback.live-video.net/api/video/v1/us-east-1.270263555070.channel.nUdevTkpfffI.m3u8?token=eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJhd3M6Y2hhbm5lbC1hcm4iOiJhcm46YXdzOml2czp1cy1lYXN0LTE6MjcwMjYzNTU1MDcwOmNoYW5uZWwvblVkZXZUa3BmZmZJIiwiYXdzOmFjY2Vzcy1jb250cm9sLWFsbG93LW9yaWdpbiI6IjEwLjEwLjEwLjEwIiwiZXhwIjoxNTk5MjM5MDMzfQ.j8XRZC6ezG_XBdh8GjuOcDuaMyz2NYnxbb2CdCJ8iLorUKsNC32JVmExl-pFAkFW2ZBQ9eUSJQ4mlJt0iWewV-D7sPVu3MAL2U0qmzXZcqMrt3gLkODGDNK5TfA_HIzO",
+      controller: _videoViewController,
+      fit: AwsFit.FitWidth,
+      // Play with vlc options
+      options: [
+        '--quiet',
+        '--no-drop-late-frames',
+        '--no-skip-frames',
+        '--rtsp-tcp'
+      ],
+      placeholder: Container(
+        height: 250.0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[CircularProgressIndicator()],
         ),
       ),
     );
   }
 
-  void playOrPauseVideo() {
-    String state = _videoViewController2.playingState.toString();
 
-    if (state == "PlayingState.PLAYING") {
-      _videoViewController2.pause();
-      setState(() {
-        isPlaying = false;
-      });
-    } else {
-      _videoViewController2.play();
-      setState(() {
-        isPlaying = true;
-      });
-    }
-  }
+
+
+
+
+
+
+
+
 
 }

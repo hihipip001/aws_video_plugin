@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-enum PlayingState { STOPPED, BUFFERING, PLAYING, ERROR }
+enum PlayingState { BUFFERING, READY, IDLE, PLAYING, ERROR }
+enum AwsFit { FitWidth, FitHeight, FitFill, FitContain }
+
 
 class Size {
   final int width;
@@ -20,7 +22,7 @@ class Size {
 }
 
 class VlcPlayer extends StatefulWidget {
-  final double aspectRatio;
+  final AwsFit fit;
   final List<String> options;
   final String url;
   final Widget placeholder;
@@ -29,8 +31,8 @@ class VlcPlayer extends StatefulWidget {
   const VlcPlayer({
     Key key,
     @required this.controller,
-    @required this.aspectRatio,
     @required this.url,
+    this.fit = AwsFit.FitFill,
     this.options,
     this.placeholder,
   });
@@ -53,9 +55,50 @@ class _VlcPlayerState extends State<VlcPlayer>
     super.initState();
   }
 
+
+  double videoWidth = 1280;
+  double videoHeight = 720;
+  Rect _getRect(AwsFit fit,constraints){
+    double viewWidth = constraints.maxWidth;
+    double viewHeight = constraints.maxHeight;
+    Rect pos;
+    if( fit == AwsFit.FitWidth ){
+      double height = videoWidth * viewHeight / viewWidth;
+      double dy = (height - videoHeight ) / 2;
+      pos = Rect.fromLTWH(0, dy, viewWidth , viewHeight - 2*dy);
+    } else if( fit == AwsFit.FitHeight ){
+      double width = videoHeight * viewWidth / viewHeight;
+      double dx = (width - videoWidth ) / 2;
+      pos = Rect.fromLTWH(dx, 0, viewWidth - 2*dx , viewHeight );
+    } else if( fit == AwsFit.FitContain ){
+      if( viewWidth>=viewHeight )
+        return _getRect(AwsFit.FitHeight,constraints);
+      else
+        return _getRect(AwsFit.FitWidth,constraints);
+    } else {
+      pos = Rect.fromLTWH(0, 0, viewWidth , viewHeight);
+    }
+    return pos;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    return LayoutBuilder(builder: (ctx, constraints){
+      return Stack(
+        children: [
+          Positioned.fromRect(
+              rect: _getRect(widget.fit,constraints),
+              child: Container(
+                child: Offstage(
+                  offstage: !playerInitialized,
+                  child: _createPlatformView(),
+                )
+              )),
+        ],
+      );
+    });
+      /*
     return AspectRatio(
       aspectRatio: widget.aspectRatio,
       child: Stack(
@@ -70,6 +113,8 @@ class _VlcPlayerState extends State<VlcPlayer>
         ],
       ),
     );
+
+     */
   }
 
   Widget _createPlatformView() {
@@ -135,9 +180,6 @@ class VlcPlayerController {
   VoidCallback _onInit;
   List<VoidCallback> _eventHandlers;
 
-  /// Once the [_methodChannel] and [_eventChannel] have been registered with
-  /// the Flutter platform SDK counterparts, [hasClients] is set to true.
-  /// At this point, the player is ready to begin playing content.
   bool hasClients = false;
 
   /// Whether or not the player is initialized.
@@ -145,38 +187,16 @@ class VlcPlayerController {
   bool get initialized => _initialized;
   bool _initialized = false;
 
-  /// Returns the current state of the player.
-  /// Valid states can be seen on the [PlayingState] enum.
-  ///
-  /// When the state is [PlayingState.BUFFERING], it means the player is
-  /// *not* playing because content needs to be buffered first.
-  ///
-  /// Essentially, when [playingState] is [PlayingState.BUFFERING] you
-  /// should show a loading indicator.
   PlayingState get playingState => _playingState;
   PlayingState _playingState;
 
-  /// The current position of the player, counted in milliseconds since start of
-  /// the content. This is as it is returned by LibVLC.
   int _position;
-
-  /// This is a Flutter duration that is returned as an abstraction of
-  /// [_position].
-  ///
-  /// Returns [Duration.zero] when the position is null (i.e. the player
-  /// is uninitialized.)
   Duration get position =>
       _position != null ? new Duration(milliseconds: _position) : Duration.zero;
 
   /// The total duration of the content, counted in milliseconds. This is as it
   /// is returned by LibVLC.
   int _duration;
-
-  /// This is a Flutter [Duration] that is returned as an abstraction of
-  /// [_duration].
-  ///
-  /// Returns [Duration.zero] when the duration is null (i.e. the player
-  /// is uninitialized.)
   Duration get duration =>
       _duration != null ? new Duration(milliseconds: _duration) : Duration.zero;
 
@@ -187,29 +207,14 @@ class VlcPlayerController {
   Size get size => _size != null ? _size : Size.zero;
   Size _size;
 
-  /// This is the aspect ratio of the content as returned by LibVLC.
-  /// Not to be confused with the aspect ratio provided to the [VlcPlayer]
-  /// widget, which is simply used for an [AspectRatio] wrapper around the
-  /// content.
-  double _aspectRatio;
+  String _qualityName;
+  String get qualityName =>
+      _qualityName != null ? _qualityName : 'UnKnown';
 
-  double get aspectRatio => _aspectRatio;
 
-  /// This is the playback speed as returned by LibVLC. Whilst playback speed
-  /// can be manipulated through the library, as this is the value actually
-  /// returned by the library, it will be the speed that LibVLC is actually
-  /// trying to process the content at.
-  double _playbackSpeed;
-
-  double get playbackSpeed => _playbackSpeed;
 
   VlcPlayerController(
-      {
-
-        /// This is a callback that will be executed once the platform view has been initialized.
-        /// If you want the media to play as soon as the platform view has initialized, you could just call
-        /// [VlcPlayerController.play] in this callback. (see the example)
-        VoidCallback onInit}) {
+      {VoidCallback onInit}) {
     _onInit = onInit;
     _eventHandlers = new List();
   }
@@ -247,27 +252,33 @@ class VlcPlayerController {
 
     _eventChannel.receiveBroadcastStream().listen((event) {
       switch (event['name']) {
-        case 'playing':
-          if (event['width'] != null && event['height'] != null)
-            _size = new Size(event['width'], event['height']);
-          if (event['length'] != null) _duration = event['length'];
-          if (event['ratio'] != null) _aspectRatio = event['ratio'];
-          if (event['audioCount'] != null) _audioCount = event['audioCount'];
-
-          _playingState =
-          event['value'] ? PlayingState.PLAYING : PlayingState.STOPPED;
-
+        case 'duration':
+          if (event['duration'] != null) _duration = event['duration'];
           _fireEventHandlers();
           break;
-
         case 'buffering':
-          if (event['value']) _playingState = PlayingState.BUFFERING;
+          _playingState = PlayingState.BUFFERING;
           _fireEventHandlers();
           break;
-
-        case 'timeChanged':
-          _position = event['value'];
-          _playbackSpeed = event['speed'];
+        case 'ready':
+          _playingState = PlayingState.READY;
+          _fireEventHandlers();
+          break;
+        case 'idle':
+          _playingState = PlayingState.IDLE;
+          _fireEventHandlers();
+          break;
+        case 'playing':
+          _playingState = PlayingState.PLAYING;
+          _fireEventHandlers();
+          break;
+        case 'quality':
+          _qualityName = event['quality'];
+          _fireEventHandlers();
+          break;
+        case 'videoSize':
+          print('width=${event['width']}');
+          print('height=${event['height']}');
           _fireEventHandlers();
           break;
       }
@@ -281,17 +292,6 @@ class VlcPlayerController {
     _onInit();
   }
 
-  Future<void> setStreamUrl(String url) async {
-    _initialized = false;
-    _fireEventHandlers();
-
-    bool wasPlaying = _playingState != PlayingState.STOPPED;
-    await _methodChannel.invokeMethod("changeURL", {'url': url});
-    if (wasPlaying) play();
-
-    _initialized = true;
-    _fireEventHandlers();
-  }
 
   Future<void> play() async {
     await _methodChannel
@@ -303,22 +303,10 @@ class VlcPlayerController {
         .invokeMethod("setPlaybackState", {'playbackState': 'pause'});
   }
 
-  Future<void> stop() async {
-    await _methodChannel
-        .invokeMethod("setPlaybackState", {'playbackState': 'stop'});
-  }
 
-  Future<void> setTime(int time) async {
-    await _methodChannel.invokeMethod("setTime", {'time': time.toString()});
-  }
 
   Future<void> setVolume(int volume) async {
     await _methodChannel.invokeMethod("setVolume", {'volume': volume});
-  }
-
-  Future<void> setPlaybackSpeed(double speed) async {
-    await _methodChannel
-        .invokeMethod("setPlaybackSpeed", {'speed': speed.toString()});
   }
 
 
@@ -326,19 +314,6 @@ class VlcPlayerController {
     _methodChannel.invokeMethod("dispose");
   }
 
-  void changeSound(int audioNumber) {
-    _methodChannel
-        .invokeMethod("changeSound", {'audioNumber': audioNumber.toString()});
-  }
-
-  void changeSubtitle(int subtitleNumber) {
-    _methodChannel.invokeMethod(
-        "changeSubtitle", {'subtitleNumber': subtitleNumber.toString()});
-  }
-
-  void addSubtitle(String filePath) {
-    _methodChannel.invokeMethod("addSubtitle", {'filePath': filePath});
-  }
 }
 
 

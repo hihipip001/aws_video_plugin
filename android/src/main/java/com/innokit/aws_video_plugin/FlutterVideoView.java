@@ -65,14 +65,12 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
         eventSink = new QueuingEventSink();
         eventChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_video_plugin/getVideoEvents_" + id);
-
         eventChannel.setStreamHandler(
                 new EventChannel.StreamHandler() {
                     @Override
                     public void onListen(Object o, EventChannel.EventSink sink) {
                         eventSink.setDelegate(sink);
                     }
-
                     @Override
                     public void onCancel(Object o) {
                         eventSink.setDelegate(null);
@@ -83,12 +81,8 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         if (player == null) {
             player = Player.Factory.create(activity);
             player.setAutoQualityMode(true);
-
             listener = new PlayerListener();
-            player.addListener(listener);
         }
-
-        Log.e("TEST","BBBBBBBBBBBBBBBBB");
 
         TextureRegistry textures = flutterPluginBinding.getTextureRegistry();
         TextureRegistry.SurfaceTextureEntry textureEntry = textures.createSurfaceTexture();
@@ -97,7 +91,6 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
 
             boolean wasPaused = false;
-
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
 
@@ -117,16 +110,18 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
             @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                if (playerDisposed) {
-                    player.pause();
-                    player.release();
-                    player=null;
-                    return true;
-                } else {
-                    player.pause();
-                    wasPaused = true;
-                    return true;
+                if( player!=null ){
+                    if (playerDisposed) {
+                        player.pause();
+                        player.release();
+                        player=null;
+                    } else {
+                        player.pause();
+                        wasPaused = true;
+
+                    }
                 }
+                return true;
             }
 
             @Override
@@ -164,8 +159,8 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 if (textureView == null) {
                     textureView = new TextureView(context);
                 }
-                Log.e("TEST","player="+player);
-                ArrayList<String> options = methodCall.argument("options");
+
+                player.removeListener(listener);
                 player.addListener(listener);
                 textureView.forceLayout();
                 textureView.setFitsSystemWindows(true);
@@ -180,10 +175,20 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             case "dispose":
                 this.dispose();
                 break;
-            case "changeSound":
-                break;
-            case "changeURL":
+            case "setPlaybackState":
 
+                String playbackState = methodCall.argument("playbackState");
+                if (playbackState == null) result.success(null);
+
+                switch (playbackState) {
+                    case "play":
+                        textureView.forceLayout();
+                        player.play();
+                        break;
+                    case "pause":
+                        player.pause();
+                        break;
+                }
                 result.success(null);
                 break;
 
@@ -250,30 +255,48 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         }
 
         @Override
-        public void onDurationChanged(long l) {
+        public void onDurationChanged(long duration) {
+            if (eventSink == null) return ;
+//            Map<String, Object> event = new HashMap<>();
+//            event.put("event", "duration");
+//            event.put("duration", duration);
+//
+//            eventSink.success(event);
 
         }
 
         @Override
         public void onStateChanged(@NonNull Player.State state) {
+            if( state == Player.State.READY ){
+                player.play();
+            }
+
+            if (eventSink == null) return ;
+            Map<String, Object> event = new HashMap<>();
             switch (state) {
                 case BUFFERING:
-                    // player is buffering
+                    event.put("name", "buffering");
+                    eventSink.success(event);
                     break;
                 case READY:
-                    player.play();
+                    event.put("name", "ready");
+                    eventSink.success(event);
+
                     break;
                 case IDLE:
+                    event.put("name", "idle");
+                    eventSink.success(event);
                     break;
                 case PLAYING:
-                    // playback started
+                    event.put("name", "playing");
+                    eventSink.success(event);
                     break;
             }
         }
 
         @Override
         public void onError(@NonNull PlayerException e) {
-
+            eventSink.error("error", "error.", e);
         }
 
         @Override
@@ -287,13 +310,22 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         }
 
         @Override
-        public void onVideoSizeChanged(int i, int i1) {
-
+        public void onVideoSizeChanged(int width, int height) {
+            if (eventSink == null) return ;
+            Map<String, Object> event = new HashMap<>();
+            event.put("event", "videoSize");
+            event.put("width", width);
+            event.put("height", height);
+            eventSink.success(event);
         }
 
         @Override
         public void onQualityChanged(@NonNull Quality quality) {
-
+            if (eventSink == null) return ;
+            Map<String, Object> event = new HashMap<>();
+            event.put("name", "quality");
+            event.put("quality",quality.getName());
+            eventSink.success(event);
         }
     }
 }
