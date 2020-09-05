@@ -316,7 +316,7 @@ class VlcPlayerController {
 
 
   void dispose() {
-    _methodChannel.invokeMethod("dispose");
+    _methodChannel.invokeMethod("dispose", {'close': true});
   }
 
 }

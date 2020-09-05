@@ -73,7 +73,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                     }
                 }
         );
-
+        Log.e("TEST","FlutterVideoView init");
         if (player == null) {
             player = Player.Factory.create(activity);
             player.setAutoQualityMode(true);
@@ -175,7 +175,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                         break ;
                     }
                 }
-                Log.e("TEST","est="+player.getBandwidthEstimate());
+                //Log.e("TEST","est="+player.getBandwidthEstimate());
             }
             handler.postDelayed(this,5000);
         }
@@ -200,7 +200,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 handler.removeCallbacks(runnable);
                 handler.post(runnable);
 
-
+                Log.e("TEST","player="+player);
                 player.removeListener(listener);
                 player.addListener(listener);
                 textureView.forceLayout();

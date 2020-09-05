@@ -28,7 +28,7 @@ class _AwsVideoWidgetState extends State<AwsVideoWidget> {
       qualityName = _videoViewController.qualityName;
       state = _videoViewController.playingState.toString();
       bandwidth = _videoViewController.bandwidth;
-      setState(() {});
+      if(mounted) setState(() {});
     });
 
 //    Timer.periodic(Duration(seconds: 1), (Timer timer) {
