@@ -37,7 +37,8 @@ public class VLCView: NSObject, FlutterPlatformView {
         self.player = IVSPlayer()
         self.channel = FlutterMethodChannel(name: "flutter_video_plugin/getVideoView_\(id)", binaryMessenger: registrar.messenger())
         self.eventChannel = FlutterEventChannel(name: "flutter_video_plugin/getVideoEvents_\(id)", binaryMessenger: registrar.messenger())
-        self.eventChannelHandler = VLCPlayerEventStreamHandler()
+        self.eventChannelHandler = VLCPlayerEventStreamHandler(player:self.player)
+         print("platformView init");
     }
     
     public func view() -> UIView {
@@ -46,6 +47,7 @@ public class VLCView: NSObject, FlutterPlatformView {
             
             guard let self = self else { return }
             
+            print(call.arguments);
             if let arguments = call.arguments as? Dictionary<String,Any>
             {
                 switch(FlutterMethodCallOption(rawValue: call.method)){
@@ -59,9 +61,14 @@ public class VLCView: NSObject, FlutterPlatformView {
                         return
                     }
                     
+                    
+ 
                     self.player.load(url)
-                    self.playerView.player = self.player;
+                    self.playerView.player = self.player
+                    self.player.autoQualityMode = false
+                    self.player.setLiveLowLatencyEnabled(true)
                     self.player.delegate = self.eventChannelHandler
+                    
                     result(nil)
                     return
                 case .setPlaybackState:
@@ -75,6 +82,9 @@ public class VLCView: NSObject, FlutterPlatformView {
                     result(nil)
                     return
                 case .dispose:
+                    self.player.pause()
+                    self.eventChannelHandler.dispose()
+                    result(nil)
                     //self.player.remo()
                     return
 
@@ -101,13 +111,49 @@ public class VLCView: NSObject, FlutterPlatformView {
     }
     
     
+
+    
+    
     
 }
 
+
 class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Delegate {
     
-    private var eventSink: FlutterEventSink?
+    public var eventSink: FlutterEventSink?
+    public var player:IVSPlayer?
+    private var timer:Timer = Timer()
+    init(player:IVSPlayer) {
+        super.init()
+        self.player = player
+        self.timer = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(self.timerAction), userInfo: nil, repeats: true)
+    }
     
+    @objc func timerAction() {
+        
+        print("timerAction");
+        guard let eventSink = self.eventSink else { return }
+        guard let player = self.player else { return }
+        eventSink(["name": "bandwidth","value": player.bandwidthEstimate])
+        guard let quality = player.quality else { return }
+
+        if player.qualities.count > 1 {
+            for obj in player.qualities {
+                if obj.bitrate < player.bandwidthEstimate {
+                    if quality.name != obj.name {
+                        player.quality = obj
+                    }
+                   break
+                }
+                //print(obj.bitrate)
+                //print(obj.name)
+            }
+        }
+        
+    }
+    func dispose(){
+        self.timer.invalidate()
+    }
     
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
@@ -158,122 +204,6 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
             "height": videoSize.height
         ])
     }
-    
-    
-
-    
-    
-    
-    /*
-    func mediaPlayerStateChanged(_ aNotification: Notification?) {
-        
-        guard let eventSink = self.eventSink else { return }
-        
-        let player = aNotification?.object as? VLCMediaPlayer
-        let media = player?.media
-        let tracks: [Any] = media?.tracksInformation ?? [""]  //[Any]
-        var track:NSDictionary
-        
-        var ratio = Float(0.0)
-        var height = 0
-        var width =  0
-        
-        //subtitle
-        let audioCount =  player?.numberOfAudioTracks ?? 0
-        let activeAudioTracks =  player?.audioChannel ?? 0
-        let spuCount =  player?.numberOfSubtitlesTracks ?? 0
-        let activeSpu = player?.currentVideoSubTitleIndex ?? 0
-        
-        
-        if player?.currentVideoTrackIndex != -1 {
-            if (player?.currentVideoTrackIndex) != nil {
-                track =  tracks[0] as! NSDictionary
-                height = (track["height"] as? Int ) ?? 0
-                width = (track["width"] as? Int) ?? 0
-                
-                if height != 0 && width != 0  {
-                    ratio = Float(width / height)
-                }
-                
-            }
-            
-        }
-        
-        switch player?.state {
-            
-        case .esAdded, .buffering, .opening:
-            return
-        case .playing:
-            eventSink([
-                "name": "buffering",
-                "value": NSNumber(value: false)
-            ])
-            if let value = media?.length.value {
-                eventSink([
-                    "name": "playing",
-                    "value": NSNumber(value: true),
-                    "ratio": NSNumber(value: ratio),
-                    "height": height,
-                    "width": width,
-                    "length": value,
-                    "audioCount": audioCount,
-                    "activeAudioTracks": activeAudioTracks,
-                    "spuCount": spuCount,
-                    "activeSpu": activeSpu
-                    
-                ])
-            }
-            return
-        case .ended:
-            eventSink([
-                "name": "ended"
-            ])
-            eventSink([
-                "name": "playing",
-                "value": NSNumber(value: false),
-                "reason": "EndReached"
-            ])
-            return
-        case .error:
-            eventSink(FlutterError(code: "500",
-                                   message: "Player State got an error",
-                                   details: nil)
-            )
-            
-            return
-            
-        case .paused, .stopped:
-            eventSink([
-                "name": "buffering",
-                "value": NSNumber(value: false)
-            ])
-            eventSink([
-                "name": "playing",
-                "value": NSNumber(value: false)
-            ])
-            return
-        default:
-            break
-        }
- 
-        
-    }
-    
-    func mediaPlayerTimeChanged(_ aNotification: Notification!) {
-        
-        let player = aNotification?.object as? VLCMediaPlayer
-        
-        if let value = player?.time.value {
-            eventSink?([
-                "name": "timeChanged",
-                "value": value,
-                "speed": NSNumber(value: player?.rate ?? 1.0)
-            ])
-        }
-        
-        
-    }
- */
 }
 
 
