@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
+import android.os.Handler;
 import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
@@ -23,6 +24,7 @@ import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -36,12 +38,6 @@ import io.flutter.view.TextureRegistry;
 
 class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler {
 
-    // Silences player log output.
-    private static final boolean DISABLE_LOG_OUTPUT = true;
-    private static final int HW_ACCELERATION_AUTOMATIC = -1;
-    private static final int HW_ACCELERATION_DISABLED = 0;
-    private static final int HW_ACCELERATION_DECODING = 1;
-    private static final int HW_ACCELERATION_FULL = 2;
 
     private Activity activity;
     private FlutterPlugin.FlutterPluginBinding flutterPluginBinding;
@@ -95,12 +91,12 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
 
                 player.setSurface(new Surface(textureView.getSurfaceTexture()));
-                Log.e("TEST","AAAAAAAAAAAAAAAA");
+                Log.e("TEST","onSurfaceTextureAvailable");
                 textureView.forceLayout();
-                if (wasPaused) {
-                    player.play();
-                    wasPaused = false;
-                }
+//                if (wasPaused) {
+//                    player.play();
+//                    wasPaused = false;
+//                }
             }
 
             @Override
@@ -110,17 +106,19 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
             @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                if( player!=null ){
-                    if (playerDisposed) {
-                        player.pause();
-                        player.release();
-                        player=null;
-                    } else {
-                        player.pause();
-                        wasPaused = true;
 
-                    }
-                }
+                Log.e("TEST","onSurfaceTextureDestroyed");
+//                if( player!=null ){
+//                    if (playerDisposed) {
+//                        player.pause();
+//                        player.release();
+//                        player=null;
+//                    } else {
+//                        player.pause();
+//                        wasPaused = true;
+//
+//                    }
+//                }
                 return true;
             }
 
@@ -142,11 +140,46 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
     @Override
     public void dispose() {
-        player.pause();
-        player.release();
-        player=null;
+        Log.e("TEST","dispose()"+player);
+        handler.removeCallbacks(runnable);
+        if(player!=null ){
+            player.pause();
+            player.release();
+            player=null;
+        }
         playerDisposed = true;
     }
+
+    private Boolean abr = true;
+    private Handler handler = new Handler();
+    Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+
+            if( player != null && eventSink!=null ){
+                Map<String, Object> event = new HashMap<>();
+                event.put("name", "bandwidth");
+                event.put("value", player.getBandwidthEstimate());
+                eventSink.success(event);
+            }
+
+            if( abr && player!=null && player.getBandwidthEstimate()!=-1 &&
+                    player.getQuality()!=null && player.getQualities().size()>1 ){
+                Iterator iterator=player.getQualities().iterator();
+                while(iterator.hasNext()) {
+                    Quality quality=(Quality)iterator.next();
+                    if( quality.getBitrate() < player.getBandwidthEstimate() ){
+                        if( !quality.getName().equals(player.getQuality().getName()) ){
+                            player.setQuality(quality,true);
+                        }
+                        break ;
+                    }
+                }
+                Log.e("TEST","est="+player.getBandwidthEstimate());
+            }
+            handler.postDelayed(this,5000);
+        }
+    };
 
 
     // Suppress WrongThread warnings from IntelliJ / Android Studio, because it looks like the advice
@@ -160,16 +193,31 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                     textureView = new TextureView(context);
                 }
 
+                this.abr = methodCall.argument("abr");
+                Log.e("TEST","this.abr="+this.abr);
+
+
+                handler.removeCallbacks(runnable);
+                handler.post(runnable);
+
+
                 player.removeListener(listener);
                 player.addListener(listener);
                 textureView.forceLayout();
                 textureView.setFitsSystemWindows(true);
                 player.setSurface(new Surface(textureView.getSurfaceTexture()));
+                player.setAutoQualityMode(true);
+                player.setLiveLowLatencyEnabled(true);
+                player.setRebufferToLive(true);
 
                 String initStreamURL = methodCall.argument("url");
                 Log.e("TEST","url="+initStreamURL);
                 player.load(Uri.parse(initStreamURL));
-                player.play();
+
+
+
+
+                //player.play();
                 result.success(null);
                 break;
             case "dispose":
@@ -202,65 +250,21 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
         }
     }
-/*
-    @Override
-    public void onLoadingChanged(boolean isLoading) {
-        HashMap<String, Object> event = new HashMap<>();
-        event.put("name", "buffering");
-        event.put("value", false);
-        eventSink.success(event);
-    }
 
-    @Override
-    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-        if (playbackState == Player.STATE_READY) {
-//            if (!setInitialized()) {
-//                HashMap<String, Object> event = new HashMap<>();
-//                event.put("name", "buffering");
-//                event.put("value", false);
-//                eventSink.success(event);
-//            }
-        } else if (playbackState == Player.STATE_ENDED) {
-            if (eventSink != null) {
-                Map<String, Object> event = new HashMap<>();
-                event.put("event", "completed");
-                eventSink.success(event);
-            }
-        } else if (playbackState == Player.STATE_BUFFERING) {
-            if (eventSink != null) {
-                HashMap<String, Object> event = new HashMap<>();
-                event.put("name", "buffering");
-                event.put("value", false);
-                eventSink.success(event);
-            }
-
-
-
-        }
-    }
-
-    @Override
-    public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees, float pixelWidthHeightRatio) {
-//        this.width = width;
-//        this.height = height;
-//        setInitialized();
-    }
-
-*/
 
     public class PlayerListener extends Player.Listener{
         @Override
         public void onCue(@NonNull Cue cue) {
-
+            Log.e("TEST","Cue");
         }
 
         @Override
         public void onDurationChanged(long duration) {
+            Log.e("TEST","onDurationChange");
             if (eventSink == null) return ;
 //            Map<String, Object> event = new HashMap<>();
 //            event.put("event", "duration");
 //            event.put("duration", duration);
-//
 //            eventSink.success(event);
 
         }
@@ -268,6 +272,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         @Override
         public void onStateChanged(@NonNull Player.State state) {
             if( state == Player.State.READY ){
+
                 player.play();
             }
 
@@ -313,7 +318,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         public void onVideoSizeChanged(int width, int height) {
             if (eventSink == null) return ;
             Map<String, Object> event = new HashMap<>();
-            event.put("event", "videoSize");
+            event.put("name", "videoSize");
             event.put("width", width);
             event.put("height", height);
             eventSink.success(event);
@@ -325,6 +330,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             Map<String, Object> event = new HashMap<>();
             event.put("name", "quality");
             event.put("quality",quality.getName());
+            Log.e("TEST","quality="+quality.toString());
             eventSink.success(event);
         }
     }

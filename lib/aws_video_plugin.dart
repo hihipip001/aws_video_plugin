@@ -23,8 +23,8 @@ class Size {
 
 class VlcPlayer extends StatefulWidget {
   final AwsFit fit;
-  final List<String> options;
   final String url;
+  final bool abr;
   final Widget placeholder;
   final VlcPlayerController controller;
 
@@ -33,7 +33,7 @@ class VlcPlayer extends StatefulWidget {
     @required this.controller,
     @required this.url,
     this.fit = AwsFit.FitFill,
-    this.options,
+    this.abr = true,
     this.placeholder,
   });
 
@@ -151,7 +151,7 @@ class _VlcPlayerState extends State<VlcPlayer>
     if (_controller.hasClients) {
       await _controller._initialize(
         widget.url,
-        widget.options,
+        widget.abr,
       );
     }
   }
@@ -200,16 +200,16 @@ class VlcPlayerController {
   Duration get duration =>
       _duration != null ? new Duration(milliseconds: _duration) : Duration.zero;
 
-  /// This is the dimensions of the content (height and width) as returned by LibVLC.
-  ///
-  /// Returns [Size.zero] when the size is null
-  /// (i.e. the player is uninitialized.)
   Size get size => _size != null ? _size : Size.zero;
   Size _size;
 
   String _qualityName;
   String get qualityName =>
       _qualityName != null ? _qualityName : 'UnKnown';
+
+  int _bandwidth;
+  int get bandwidth =>
+      _bandwidth != null ? _bandwidth : -1;
 
 
 
@@ -242,11 +242,11 @@ class VlcPlayerController {
   }
 
   Future<void> _initialize(String url,
-      [List<String> options]) async {
+      bool abr) async {
 
     await _methodChannel.invokeMethod("initialize", {
       'url': url,
-      'options': options ?? []
+      'abr': abr
     });
     _position = 0;
 
@@ -274,6 +274,11 @@ class VlcPlayerController {
           break;
         case 'quality':
           _qualityName = event['quality'];
+          _fireEventHandlers();
+          break;
+        case 'bandwidth':
+
+          _bandwidth = event['value'];
           _fireEventHandlers();
           break;
         case 'videoSize':
