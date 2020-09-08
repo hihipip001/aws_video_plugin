@@ -22,29 +22,27 @@ class Size {
         this.height = height;
 }
 
-class VlcPlayer extends StatefulWidget {
+class AWSPlayer extends StatefulWidget {
   final AwsFit fit;
   final String url;
-  final bool abr;
   final Widget placeholder;
-  final VlcPlayerController controller;
+  final AWSPlayerController controller;
 
-  const VlcPlayer({
+  const AWSPlayer({
     Key key,
     @required this.controller,
     @required this.url,
     this.fit = AwsFit.FitFill,
-    this.abr = true,
     this.placeholder,
   });
 
   @override
-  _VlcPlayerState createState() => _VlcPlayerState();
+  _AWSPlayerState createState() => _AWSPlayerState();
 }
 
-class _VlcPlayerState extends State<VlcPlayer>
+class _AWSPlayerState extends State<AWSPlayer>
     with AutomaticKeepAliveClientMixin {
-  VlcPlayerController _controller;
+  AWSPlayerController _controller;
   int videoRenderId;
   bool playerInitialized = false;
 
@@ -82,8 +80,6 @@ class _VlcPlayerState extends State<VlcPlayer>
     return pos;
   }
 
-
-
   _itemList(){
     return DropdownButton(
       underline: Container() ,
@@ -101,26 +97,97 @@ class _VlcPlayerState extends State<VlcPlayer>
       value: widget.controller.selectQualityMode,
     );
   }
-  _buildItem(){
+  _buildItem({width}){
+
+    return Offstage(
+      offstage: _hidePlayControl,
+      child: AnimatedOpacity(
+        // 加入透明度动画
+        opacity: _playControlOpacity,
+        duration: Duration(milliseconds: 300),
+        child: Container(
+          width: width,
+          height: 60,
+          alignment: Alignment.center,
+          color:Colors.black26,
+          child: Row(
+            children: [
+              _buildQualitySelect(),
+              _buildNowQuality(),
+            ],
+          ),
+        )
+      )
+    );
+
+
+  }
+  //視訊選擇
+  _buildQualitySelect() {
     return Offstage(
       offstage: !playerInitialized,
-      child:Container(
-        margin: EdgeInsets.fromLTRB(30, 15, 30, 15),
-        padding: EdgeInsets.only(left:10,top:5,bottom:5),
+      child: Container(
+        margin: EdgeInsets.fromLTRB(30, 5, 30, 5),
+        padding: EdgeInsets.only(left: 10, top: 8, bottom: 8),
         width: 150,
         decoration: BoxDecoration(
           color: Colors.white,
-          border:Border.all(
-              color:Colors.white,
-              width:1.0
+          border: Border.all(
+              color: Colors.white,
+              width: 1.0
           ),
         ),
-        child:_itemList(),
+        child: _itemList(),
+      ),
+    );
+  }
+  _buildNowQuality(){
+    return Offstage(
+      offstage: !playerInitialized,
+      child:Container(
+        child:Text(widget.controller.qualityName,style:TextStyle(fontSize: 16,color:Colors.white)),
       ),
     );
   }
 
-  @override
+
+
+  bool _hidePlayControl = true;
+  double _playControlOpacity = 0;
+  Timer _timer;
+  void _togglePlayControl() {
+    setState(() {
+      if (_hidePlayControl) {
+        _hidePlayControl = false;
+        _playControlOpacity = 1;
+        _startPlayControlTimer();
+      } else {
+        /// 如果显示就隐藏
+        if (_timer != null) _timer.cancel();
+        _playControlOpacity = 0;
+        Future.delayed(Duration(milliseconds: 500)).whenComplete(() {
+          _hidePlayControl = true; // 延迟500ms(透明度动画结束)后，隐藏
+        });
+      }
+    });
+  }
+  void _startPlayControlTimer() {
+    if (_timer != null) _timer.cancel();
+    _timer = Timer(Duration(seconds: 5), () {
+      setState(() {
+        _playControlOpacity = 0;
+        Future.delayed(Duration(milliseconds: 500)).whenComplete(() {
+          _hidePlayControl = true;
+        });
+      });
+    });
+  }
+
+
+
+
+
+    @override
   Widget build(BuildContext context) {
     super.build(context);
     return LayoutBuilder(builder: (ctx, constraints){
@@ -132,8 +199,9 @@ class _VlcPlayerState extends State<VlcPlayer>
                 child: Offstage(
                   offstage: !playerInitialized,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
                     onTap: (){
-
+                      _togglePlayControl();
                     },
                     child: _createPlatformView()
                   ),
@@ -141,13 +209,7 @@ class _VlcPlayerState extends State<VlcPlayer>
               )),
           Positioned(
             bottom: 0,left:0,
-            child: Container(
-              width: constraints.maxWidth,
-              height: 60,
-              alignment: Alignment.center,
-              color:Colors.black26,
-              child: _buildItem(),
-            )
+            child:  _buildItem(width:constraints.maxWidth)
           )
         ],
       );
@@ -171,21 +233,25 @@ class _VlcPlayerState extends State<VlcPlayer>
      */
   }
 
+
+
+
+
   Widget _createPlatformView() {
     if (Platform.isIOS) {
       return UiKitView(
-          viewType: "flutter_video_plugin/getVideoView",
+          viewType: "flutter_video_plugin/getVideoAWSView",
           hitTestBehavior: PlatformViewHitTestBehavior.transparent,
           onPlatformViewCreated: _onPlatformViewCreated);
     } else if (Platform.isAndroid) {
       return AndroidView(
-          viewType: "flutter_video_plugin/getVideoView",
+          viewType: "flutter_video_plugin/getVideoAWSView",
           hitTestBehavior: PlatformViewHitTestBehavior.transparent,
           onPlatformViewCreated: _onPlatformViewCreated);
     }
 
     throw new Exception(
-        "flutter_vlc_plugin has not been implemented on your platform.");
+        "flutter_aws_plugin has not been implemented on your platform.");
   }
 
   void _onPlatformViewCreated(int id) async {
@@ -200,12 +266,9 @@ class _VlcPlayerState extends State<VlcPlayer>
         });
     });
 
-    // Once the controller has clients registered, we're good to register
-    // with LibVLC on the platform side.
     if (_controller.hasClients) {
       await _controller._initialize(
         widget.url,
-        widget.abr,
       );
     }
   }
@@ -224,12 +287,9 @@ class _VlcPlayerState extends State<VlcPlayer>
   }
 }
 
-class VlcPlayerController {
+class AWSPlayerController {
   MethodChannel _methodChannel;
   EventChannel _eventChannel;
-
-  int get audioCount => _audioCount;
-  int _audioCount = 1;
 
   VoidCallback _onInit;
   List<VoidCallback> _eventHandlers;
@@ -266,15 +326,15 @@ class VlcPlayerController {
 
 
 
-  VlcPlayerController(
+  AWSPlayerController(
       {VoidCallback onInit}) {
     _onInit = onInit;
     _eventHandlers = new List();
   }
 
   void registerChannels(int id) {
-    _methodChannel = MethodChannel("flutter_video_plugin/getVideoView_$id");
-    _eventChannel = EventChannel("flutter_video_plugin/getVideoEvents_$id");
+    _methodChannel = MethodChannel("flutter_video_plugin/getVideoAWSView_$id");
+    _eventChannel = EventChannel("flutter_video_plugin/getVideoAWSEvents_$id");
     hasClients = true;
   }
 
@@ -294,12 +354,9 @@ class VlcPlayerController {
     _eventHandlers.forEach((handler) => handler());
   }
 
-  Future<void> _initialize(String url,
-      bool abr) async {
-
+  Future<void> _initialize(String url) async {
     await _methodChannel.invokeMethod("initialize", {
       'url': url,
-      'abr': abr
     });
     _position = 0;
 
@@ -429,7 +486,7 @@ class FadeAnimation extends StatefulWidget {
   final Widget child;
   final Duration duration;
 
-  FadeAnimation({this.child, this.duration: const Duration(milliseconds: 5000)});
+  FadeAnimation({this.child, this.duration: const Duration(milliseconds: 3000),Key key}):super(key:key);
 
   @override
   _FadeAnimationState createState() => new _FadeAnimationState();
@@ -441,6 +498,7 @@ class _FadeAnimationState extends State<FadeAnimation>
 
   @override
   void initState() {
+    print("initState animation");
     super.initState();
     animationController = new AnimationController(duration: widget.duration, vsync: this);
     animationController.addListener(() {

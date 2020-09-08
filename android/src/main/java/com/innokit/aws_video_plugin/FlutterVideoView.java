@@ -23,9 +23,13 @@ import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -60,7 +64,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         this.flutterPluginBinding = flutterPluginBinding;
 
         eventSink = new QueuingEventSink();
-        eventChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_video_plugin/getVideoEvents_" + id);
+        eventChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_video_plugin/getVideoAWSEvents_" + id);
         eventChannel.setStreamHandler(
                 new EventChannel.StreamHandler() {
                     @Override
@@ -85,18 +89,12 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         textureView = new TextureView(context);
         textureView.setSurfaceTexture(textureEntry.surfaceTexture());
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-
-            boolean wasPaused = false;
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
 
                 player.setSurface(new Surface(textureView.getSurfaceTexture()));
                 Log.e("TEST","onSurfaceTextureAvailable");
                 textureView.forceLayout();
-//                if (wasPaused) {
-//                    player.play();
-//                    wasPaused = false;
-//                }
             }
 
             @Override
@@ -108,17 +106,6 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
 
                 Log.e("TEST","onSurfaceTextureDestroyed");
-//                if( player!=null ){
-//                    if (playerDisposed) {
-//                        player.pause();
-//                        player.release();
-//                        player=null;
-//                    } else {
-//                        player.pause();
-//                        wasPaused = true;
-//
-//                    }
-//                }
                 return true;
             }
 
@@ -129,7 +116,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
         });
 
-        methodChannel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_video_plugin/getVideoView_" + id);
+        methodChannel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_video_plugin/getVideoAWSView_" + id);
         methodChannel.setMethodCallHandler(this);
     }
 
@@ -140,7 +127,6 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
     @Override
     public void dispose() {
-        Log.e("TEST","dispose()"+player);
         handler.removeCallbacks(runnable);
         if(player!=null ){
             player.pause();
@@ -152,6 +138,8 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
     private Handler handler = new Handler();
     private String qualityName;
+    private List<Quality> qualityList;
+
     Runnable runnable = new Runnable() {
         @Override
         public void run() {
@@ -164,9 +152,20 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             }
             if( qualityName==null && player!=null && player.getBandwidthEstimate()!=-1 &&
                     player.getQuality()!=null && player.getQualities().size()>1 ){
-                Iterator iterator=player.getQualities().iterator();
-                while(iterator.hasNext()) {
-                    Quality quality=(Quality)iterator.next();
+
+                if( qualityList==null ){
+                    qualityList = new ArrayList<>();
+                    for(Quality p : player.getQualities()) {
+                        qualityList.add(p);
+                    }
+                    Collections.sort(qualityList, new Comparator<Quality>() {
+                        @Override
+                        public int compare(Quality o1, Quality o2) {
+                            return o1.getBitrate() > o2.getBitrate() ? -1 : 1;
+                        }
+                    });
+                }
+                for(Quality quality:qualityList){
                     if( quality.getBitrate() < player.getBandwidthEstimate() ){
                         if( !quality.getName().equals(player.getQuality().getName()) ){
                             player.setQuality(quality,true);
@@ -175,7 +174,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                     }
                 }
             }
-            handler.postDelayed(this,5000);
+            handler.postDelayed(this,6000);
         }
     };
 
@@ -244,6 +243,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 break;
             case "setQuality":
                 qualityName =  methodCall.argument("name");
+                Log.e("TEST","qualityName="+qualityName);
 
                 if( qualityName.equalsIgnoreCase("Auto") ){
                     qualityName = null;
