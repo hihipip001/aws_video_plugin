@@ -7,7 +7,7 @@ public class SwiftAwsVideoPlugin: NSObject, FlutterPlugin {
     private var factory: VLCViewFactory
     public init(with registrar: FlutterPluginRegistrar) {
         self.factory = VLCViewFactory(withRegistrar: registrar)
-        registrar.register(factory, withId: "flutter_video_plugin/getVideoView")
+        registrar.register(factory, withId: "flutter_video_plugin/getVideoAWSView")
     }
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -35,8 +35,8 @@ public class VLCView: NSObject, FlutterPlatformView {
         self.playerView = IVSPlayerView()
         //self.hostedView.addSubview(self.playerView)
         self.player = IVSPlayer()
-        self.channel = FlutterMethodChannel(name: "flutter_video_plugin/getVideoView_\(id)", binaryMessenger: registrar.messenger())
-        self.eventChannel = FlutterEventChannel(name: "flutter_video_plugin/getVideoEvents_\(id)", binaryMessenger: registrar.messenger())
+        self.channel = FlutterMethodChannel(name: "flutter_video_plugin/getVideoAWSView_\(id)", binaryMessenger: registrar.messenger())
+        self.eventChannel = FlutterEventChannel(name: "flutter_video_plugin/getVideoAWSEvents_\(id)", binaryMessenger: registrar.messenger())
         self.eventChannelHandler = VLCPlayerEventStreamHandler(player:self.player)
          print("platformView init");
     }
@@ -133,23 +133,23 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
     public var player:IVSPlayer?
     public var qualityName:String?
     private var timer:Timer = Timer()
+    private var qualityList:Array<IVSQuality> = []
     
     init(player:IVSPlayer) {
         super.init()
         self.player = player
-        self.timer = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(self.timerAction), userInfo: nil, repeats: true)
     }
     
     @objc func timerAction() {
         
-        print("timerAction");
+        //print("timerAction");
         guard let eventSink = self.eventSink else { return }
         guard let player = self.player else { return }
         eventSink(["name": "bandwidth","value": player.bandwidthEstimate])
         guard let quality = player.quality else { return }
 
-        if qualityName != nil && player.qualities.count > 1 {
-            for obj in player.qualities {
+        if qualityName == nil && qualityList.count > 1 {
+            for obj in self.qualityList {
                 if obj.bitrate < player.bandwidthEstimate {
                     if quality.name != obj.name {
                         player.quality = obj
@@ -190,17 +190,25 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
     func player(_ player: IVSPlayer, didChangeState state: IVSPlayer.State) {
         if state == .ready {
             player.play()
+            
+            if self.qualityList.count == 0 {
+                self.qualityList = player.qualities.sorted { (obj1, obj2) -> Bool in
+                    return obj1.bitrate > obj2.bitrate
+                }
+            }
+            // timer
+            self.timer.invalidate()
+            self.timer = Timer.scheduledTimer(timeInterval: 6.0, target: self, selector: #selector(self.timerAction), userInfo: nil, repeats: true)
+             
             if let eventSink = self.eventSink {
                 var qualities = ""
-                guard let mainPlayer = self.player else { return }
-                for obj in mainPlayer.qualities {
+                for obj in self.qualityList {
                     qualities += "\(obj.name):\(obj.bitrate)#"
                 }
                 print(qualities)
                 let range = qualities.startIndex..<qualities.index(before:qualities.endIndex)
                 eventSink(["name": "setQuality","value": qualities[range]])
             }
-            
         }
         guard let eventSink = self.eventSink else { return }
         if state == .buffering {
