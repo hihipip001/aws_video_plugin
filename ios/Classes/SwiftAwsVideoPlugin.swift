@@ -68,6 +68,7 @@ public class VLCView: NSObject, FlutterPlatformView {
                     self.player.autoQualityMode = false
                     self.player.setLiveLowLatencyEnabled(true)
                     self.player.delegate = self.eventChannelHandler
+                    self.eventChannelHandler.setQuality(qualityName:nil)
                     
                     result(nil)
                     return
@@ -87,7 +88,15 @@ public class VLCView: NSObject, FlutterPlatformView {
                     result(nil)
                     //self.player.remo()
                     return
-
+                case .setQuality:
+                    let qualityName = arguments["name"] as? String
+                    if qualityName == "Auto" {
+                        self.eventChannelHandler.setQuality(qualityName:nil)
+                    } else {
+                        self.eventChannelHandler.setQuality(qualityName:qualityName)
+                    }
+                    result(nil)
+                    return
                 case .setVolume:
                     let setVolume = arguments["volume"] as? Float
                     self.player.volume = setVolume ?? 100.0
@@ -122,7 +131,9 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
     
     public var eventSink: FlutterEventSink?
     public var player:IVSPlayer?
+    public var qualityName:String?
     private var timer:Timer = Timer()
+    
     init(player:IVSPlayer) {
         super.init()
         self.player = player
@@ -137,7 +148,7 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
         eventSink(["name": "bandwidth","value": player.bandwidthEstimate])
         guard let quality = player.quality else { return }
 
-        if player.qualities.count > 1 {
+        if qualityName != nil && player.qualities.count > 1 {
             for obj in player.qualities {
                 if obj.bitrate < player.bandwidthEstimate {
                     if quality.name != obj.name {
@@ -154,6 +165,17 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
     func dispose(){
         self.timer.invalidate()
     }
+    func setQuality(qualityName:String?){
+        self.qualityName = qualityName
+        guard let player = self.player else { return }
+        if self.qualityName != nil {
+            for obj in player.qualities {
+                if self.qualityName == obj.name {
+                    player.quality = obj
+                }
+            }
+        }
+    }
     
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
@@ -168,6 +190,17 @@ class VLCPlayerEventStreamHandler:NSObject, FlutterStreamHandler, IVSPlayer.Dele
     func player(_ player: IVSPlayer, didChangeState state: IVSPlayer.State) {
         if state == .ready {
             player.play()
+            if let eventSink = self.eventSink {
+                var qualities = ""
+                guard let mainPlayer = self.player else { return }
+                for obj in mainPlayer.qualities {
+                    qualities += "\(obj.name):\(obj.bitrate)#"
+                }
+                print(qualities)
+                let range = qualities.startIndex..<qualities.index(before:qualities.endIndex)
+                eventSink(["name": "setQuality","value": qualities[range]])
+            }
+            
         }
         guard let eventSink = self.eventSink else { return }
         if state == .buffering {
@@ -237,7 +270,6 @@ enum FlutterMethodCallOption :String {
     case setPlaybackSpeed = "setPlaybackSpeed"
     case setTime = "setTime"
     case setVolume = "setVolume"
-    case changeSound = "changeSound"
-    case changeSubtitle = "changeSubtitle"
-    case addSubtitle = "addSubtitle"
+    case setQuality = "setQuality"
+
 }
