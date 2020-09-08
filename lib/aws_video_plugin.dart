@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 
 enum PlayingState { BUFFERING, READY, IDLE, PLAYING, ERROR }
 enum AwsFit { FitWidth, FitHeight, FitFill, FitContain }
@@ -81,6 +82,44 @@ class _VlcPlayerState extends State<VlcPlayer>
     return pos;
   }
 
+
+
+  _itemList(){
+    return DropdownButton(
+      underline: Container() ,
+      isExpanded : true,
+      isDense : true,
+      iconSize: 24,
+      elevation : 0,
+      items: widget.controller.qualityModeItems,
+      onChanged: (value) {
+        setState(() {
+          widget.controller.selectQualityMode = value;
+          widget.controller.setQuality();
+        });
+      },
+      value: widget.controller.selectQualityMode,
+    );
+  }
+  _buildItem(){
+    return Offstage(
+      offstage: !playerInitialized,
+      child:Container(
+        margin: EdgeInsets.fromLTRB(30, 15, 30, 15),
+        padding: EdgeInsets.only(left:10,top:5,bottom:5),
+        width: 150,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border:Border.all(
+              color:Colors.white,
+              width:1.0
+          ),
+        ),
+        child:_itemList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -92,9 +131,24 @@ class _VlcPlayerState extends State<VlcPlayer>
               child: Container(
                 child: Offstage(
                   offstage: !playerInitialized,
-                  child: _createPlatformView(),
+                  child: GestureDetector(
+                    onTap: (){
+
+                    },
+                    child: _createPlatformView()
+                  ),
                 )
               )),
+          Positioned(
+            bottom: 0,left:0,
+            child: Container(
+              width: constraints.maxWidth,
+              height: 60,
+              alignment: Alignment.center,
+              color:Colors.black26,
+              child: _buildItem(),
+            )
+          )
         ],
       );
     });
@@ -182,8 +236,6 @@ class VlcPlayerController {
 
   bool hasClients = false;
 
-  /// Whether or not the player is initialized.
-  /// This is set to true when the player has loaded a URL.
   bool get initialized => _initialized;
   bool _initialized = false;
 
@@ -194,8 +246,6 @@ class VlcPlayerController {
   Duration get position =>
       _position != null ? new Duration(milliseconds: _position) : Duration.zero;
 
-  /// The total duration of the content, counted in milliseconds. This is as it
-  /// is returned by LibVLC.
   int _duration;
   Duration get duration =>
       _duration != null ? new Duration(milliseconds: _duration) : Duration.zero;
@@ -204,12 +254,15 @@ class VlcPlayerController {
   Size _size;
 
   String _qualityName;
-  String get qualityName =>
-      _qualityName != null ? _qualityName : 'UnKnown';
+  String get qualityName => _qualityName != null ? _qualityName : 'UnKnown';
 
   int _bandwidth;
-  int get bandwidth =>
-      _bandwidth != null ? _bandwidth : -1;
+  int get bandwidth => _bandwidth != null ? _bandwidth : -1;
+
+  //品質選擇
+  List<QualityMode> qualityMode = [];
+  List<DropdownMenuItem> qualityModeItems = [];
+  int selectQualityMode = 0;
 
 
 
@@ -276,6 +329,22 @@ class VlcPlayerController {
           _qualityName = event['quality'];
           _fireEventHandlers();
           break;
+        case 'setQuality': //設定有多少瀏覽品質
+          String _value = event['value'];
+          qualityMode = [];
+          qualityModeItems = [];
+          qualityMode.add(QualityMode('Auto', -1));
+          qualityModeItems.add(DropdownMenuItem(value: 0,child: Text("Auto",),));
+          int i=1;
+          for( var obj in _value.split('#') ){
+            var name = obj.split(':')[0];
+            qualityMode.add(QualityMode(name, int.parse(obj.split(':')[1])));
+            qualityModeItems.add(DropdownMenuItem(value: i++,child: Text(name,),));
+          }
+          print("qua=${qualityMode.length}");
+
+          _fireEventHandlers();
+          break;
         case 'bandwidth':
 
           _bandwidth = event['value'];
@@ -295,6 +364,12 @@ class VlcPlayerController {
     _initialized = true;
     _fireEventHandlers();
     _onInit();
+  }
+
+  Future<void> setQuality() async {
+    QualityMode quality = qualityMode[selectQualityMode];
+    await _methodChannel
+        .invokeMethod("setQuality", {'name': quality.name});
   }
 
 
@@ -338,3 +413,78 @@ class AwsVideoPlugin {
   }
 }
 */
+
+
+
+class QualityMode{
+  String name;
+  int bandwidth;
+  QualityMode(this.name,this.bandwidth);
+}
+
+
+
+
+class FadeAnimation extends StatefulWidget {
+  final Widget child;
+  final Duration duration;
+
+  FadeAnimation({this.child, this.duration: const Duration(milliseconds: 5000)});
+
+  @override
+  _FadeAnimationState createState() => new _FadeAnimationState();
+}
+
+class _FadeAnimationState extends State<FadeAnimation>
+    with SingleTickerProviderStateMixin {
+  AnimationController animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    animationController = new AnimationController(duration: widget.duration, vsync: this);
+    animationController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    animationController.forward(from: 0.0);
+  }
+
+  @override
+  void deactivate() {
+    animationController.stop();
+    super.deactivate();
+  }
+
+  @override
+  void didUpdateWidget(FadeAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.child != widget.child) {
+      animationController.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return animationController.isAnimating
+        ? new Opacity(
+      opacity: 1.0 - animationController.value,
+      child: widget.child,
+    )
+        : new Container();
+  }
+}
+
+
+
+
+
+
+
