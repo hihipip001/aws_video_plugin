@@ -5,13 +5,13 @@ import 'package:aws_video_plugin/aws_video_plugin.dart';
 import 'package:flutter/material.dart';
 
 
-class AwsVideoWidget extends StatefulWidget {
-  AwsVideoWidget({Key key}):super(key:key);
+class VideoWidget extends StatefulWidget {
+  VideoWidget({Key key}):super(key:key);
   @override
-  _AwsVideoWidgetState createState() => _AwsVideoWidgetState();
+  _VideoWidgetState createState() => _VideoWidgetState();
 }
 
-class _AwsVideoWidgetState extends State<AwsVideoWidget> {
+class _VideoWidgetState extends State<VideoWidget> {
 
   AWSPlayerController _videoViewController;
   String qualityName = '';
@@ -79,12 +79,13 @@ class _AwsVideoWidgetState extends State<AwsVideoWidget> {
       // "https://032ec9cda8db.us-east-1.playback.live-video.net/api/video/v1/us-east-1.270263555070.channel.nUdevTkpfffI.m3u8?token=eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJhd3M6Y2hhbm5lbC1hcm4iOiJhcm46YXdzOml2czp1cy1lYXN0LTE6MjcwMjYzNTU1MDcwOmNoYW5uZWwvblVkZXZUa3BmZmZJIiwiYXdzOmFjY2Vzcy1jb250cm9sLWFsbG93LW9yaWdpbiI6IjEwLjEwLjEwLjEwIiwiZXhwIjoxNTk5MjM5MDMzfQ.j8XRZC6ezG_XBdh8GjuOcDuaMyz2NYnxbb2CdCJ8iLorUKsNC32JVmExl-pFAkFW2ZBQ9eUSJQ4mlJt0iWewV-D7sPVu3MAL2U0qmzXZcqMrt3gLkODGDNK5TfA_HIzO",
       controller: _videoViewController,
       fit: AwsFit.FitWidth,
-      placeholder: Container(
-        height: 250.0,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[CircularProgressIndicator()],
-        ),
+      placeholder: Center(
+        child: Container(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[CircularProgressIndicator()],
+          ),
+        )
       ),
     );
   }

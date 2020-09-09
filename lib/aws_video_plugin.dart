@@ -54,7 +54,7 @@ class _AWSPlayerState extends State<AWSPlayer>
     super.initState();
   }
 
-
+  //計算寬度
   double videoWidth = 1280;
   double videoHeight = 720;
   Rect _getRect(AwsFit fit,constraints){
@@ -80,6 +80,7 @@ class _AWSPlayerState extends State<AWSPlayer>
     return pos;
   }
 
+  //品質的下拉式選單
   _itemList(){
     return DropdownButton(
       underline: Container() ,
@@ -97,8 +98,9 @@ class _AWSPlayerState extends State<AWSPlayer>
       value: widget.controller.selectQualityMode,
     );
   }
-  _buildItem({width}){
 
+  //下面列表
+  _buildItem({width}){
     return Offstage(
       offstage: _hidePlayControl,
       child: AnimatedOpacity(
@@ -222,6 +224,7 @@ class _AWSPlayerState extends State<AWSPlayer>
     return LayoutBuilder(builder: (ctx, constraints){
       return Stack(
         children: [
+          widget.placeholder ?? Container(),
           Positioned.fromRect(
               rect: _getRect(widget.fit,constraints),
               child: Container(
@@ -244,26 +247,7 @@ class _AWSPlayerState extends State<AWSPlayer>
         ],
       );
     });
-      /*
-    return AspectRatio(
-      aspectRatio: widget.aspectRatio,
-      child: Stack(
-        children: <Widget>[
-          Offstage(
-              offstage: playerInitialized,
-              child: widget.placeholder ?? Container()),
-          Offstage(
-            offstage: !playerInitialized,
-            child: _createPlatformView(),
-          ),
-        ],
-      ),
-    );
-
-     */
   }
-
-
 
 
 
@@ -294,15 +278,6 @@ class _AWSPlayerState extends State<AWSPlayer>
         setState(() {
           playerInitialized = _controller.initialized;
         });
-
-      print("_controller.playingState=${_controller.playingState}");
-      if( _controller.playingState!=null && _controller.playingState == PlayingState.ERROR ){
-        print("aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-      }
-
-      //print("test=${_controller.playingState}");
-
-
     });
 
     if (_controller.hasClients) {
@@ -520,66 +495,6 @@ class QualityMode{
   QualityMode(this.name,this.bandwidth);
 }
 
-
-
-
-class FadeAnimation extends StatefulWidget {
-  final Widget child;
-  final Duration duration;
-
-  FadeAnimation({this.child, this.duration: const Duration(milliseconds: 3000),Key key}):super(key:key);
-
-  @override
-  _FadeAnimationState createState() => new _FadeAnimationState();
-}
-
-class _FadeAnimationState extends State<FadeAnimation>
-    with SingleTickerProviderStateMixin {
-  AnimationController animationController;
-
-  @override
-  void initState() {
-    print("initState animation");
-    super.initState();
-    animationController = new AnimationController(duration: widget.duration, vsync: this);
-    animationController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    animationController.forward(from: 0.0);
-  }
-
-  @override
-  void deactivate() {
-    animationController.stop();
-    super.deactivate();
-  }
-
-  @override
-  void didUpdateWidget(FadeAnimation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.child != widget.child) {
-      animationController.forward(from: 0.0);
-    }
-  }
-
-  @override
-  void dispose() {
-    animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return animationController.isAnimating
-        ? new Opacity(
-      opacity: 1.0 - animationController.value,
-      child: widget.child,
-    )
-        : new Container();
-  }
-}
 
 
 

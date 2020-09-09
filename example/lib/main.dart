@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:aws_video_plugin/aws_video_plugin.dart';
-import 'package:aws_video_plugin_example/aws_video_widget.dart';
+import 'package:aws_video_plugin_example/video_widget.dart';
 import 'package:flutter/material.dart';
 
 
@@ -39,9 +39,7 @@ class MyAppScaffoldState extends State<MyAppScaffold> {
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
-      appBar: new AppBar(
-        title: const Text('Plugin example app'),
-      ),
+      appBar: null,
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.camera),
         onPressed: (){
@@ -51,7 +49,7 @@ class MyAppScaffoldState extends State<MyAppScaffold> {
         },
       ),
       body: Center(
-        child: isVideo ? AwsVideoWidget(key:Key('${DateTime.now().millisecondsSinceEpoch}')) : Text('Test'),
+        child: isVideo ? VideoWidget(key:Key('${DateTime.now().millisecondsSinceEpoch}')) : Text('Test'),
       ),
     );
   }
