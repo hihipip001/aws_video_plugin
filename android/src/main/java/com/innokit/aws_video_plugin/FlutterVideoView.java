@@ -138,7 +138,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
 
     private Handler handler = new Handler();
     private String qualityName;
-    private List<Quality> qualityList;
+    private List<Quality> qualityList = new ArrayList<>();
 
     Runnable runnable = new Runnable() {
         @Override
@@ -151,20 +151,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 eventSink.success(event);
             }
             if( qualityName==null && player!=null && player.getBandwidthEstimate()!=-1 &&
-                    player.getQuality()!=null && player.getQualities().size()>1 ){
-
-                if( qualityList==null ){
-                    qualityList = new ArrayList<>();
-                    for(Quality p : player.getQualities()) {
-                        qualityList.add(p);
-                    }
-                    Collections.sort(qualityList, new Comparator<Quality>() {
-                        @Override
-                        public int compare(Quality o1, Quality o2) {
-                            return o1.getBitrate() > o2.getBitrate() ? -1 : 1;
-                        }
-                    });
-                }
+                    qualityList.size()>1 ){
                 for(Quality quality:qualityList){
                     if( quality.getBitrate() < player.getBandwidthEstimate() ){
                         if( !quality.getName().equals(player.getQuality().getName()) ){
@@ -189,10 +176,6 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 if (textureView == null) {
                     textureView = new TextureView(context);
                 }
-
-
-                handler.removeCallbacks(runnable);
-                handler.post(runnable);
 
                 Log.e("TEST","player="+player);
                 qualityName = null;
@@ -243,24 +226,19 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                 break;
             case "setQuality":
                 qualityName =  methodCall.argument("name");
-                Log.e("TEST","qualityName="+qualityName);
-
+                Log.e("TEST","name="+qualityName);
                 if( qualityName.equalsIgnoreCase("Auto") ){
                     qualityName = null;
                 } else {
-                    Iterator iterator=player.getQualities().iterator();
-                    while(iterator.hasNext()) {
-                        Quality quality=(Quality)iterator.next();
+                    for(Quality quality:qualityList){
                         if( quality.getName().equals(qualityName) ){
                             player.setQuality(quality);
                             break ;
                         }
                     }
                 }
-                Log.e("TEST","qualityName="+qualityName);
                 result.success(null);
                 break;
-
         }
     }
 
@@ -275,11 +253,6 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         public void onDurationChanged(long duration) {
             Log.e("TEST","onDurationChange");
             if (eventSink == null) return ;
-//            Map<String, Object> event = new HashMap<>();
-//            event.put("event", "duration");
-//            event.put("duration", duration);
-//            eventSink.success(event);
-
         }
 
         @Override
@@ -287,11 +260,22 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             if( state == Player.State.READY ){
                 player.play();
 
+                //初始化品質列表
+                if( qualityList.size()==0 ){
+                    for(Quality p : player.getQualities()) {
+                        qualityList.add(p);
+                    }
+                    Collections.sort(qualityList, new Comparator<Quality>() {
+                        @Override
+                        public int compare(Quality o1, Quality o2) {
+                            return o1.getBitrate() > o2.getBitrate() ? -1 : 1;
+                        }
+                    });
+                }
+
                 if( eventSink!=null ){
                     String qualities = "";
-                    Iterator iterator=player.getQualities().iterator();
-                    while(iterator.hasNext()) {
-                        Quality quality=(Quality)iterator.next();
+                    for(Quality quality:qualityList){
                         qualities += quality.getName()+":"+quality.getBitrate()+"#";
                     }
                     qualities = qualities.substring(0,qualities.length()-1);
@@ -301,7 +285,8 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
                     eventSink.success(event);
 
                 }
-
+                handler.removeCallbacks(runnable);
+                handler.post(runnable);
 
                 Log.e("TEST","Size="+player.getQualities().size());
             }

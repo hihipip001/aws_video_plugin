@@ -56,13 +56,13 @@ class _AwsVideoWidgetState extends State<AwsVideoWidget> {
     return Stack(
       children: [
         _buildMyWidget(),
-        Column(
-          children: [
-            Text(qualityName,style:TextStyle(fontSize: 40,color:Colors.red)),
-            Text(state,style:TextStyle(fontSize: 40,color:Colors.red)),
-            Text('$bandwidth',style:TextStyle(fontSize: 40,color:Colors.red)),
-          ],
-        )
+//        Column(
+//          children: [
+//            Text(qualityName,style:TextStyle(fontSize: 40,color:Colors.red)),
+//            Text(state,style:TextStyle(fontSize: 40,color:Colors.red)),
+//            Text('$bandwidth',style:TextStyle(fontSize: 40,color:Colors.red)),
+//          ],
+//        )
       ],
     );
 

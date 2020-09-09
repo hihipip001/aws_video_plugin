@@ -114,42 +114,71 @@ class _AWSPlayerState extends State<AWSPlayer>
             children: [
               _buildQualitySelect(),
               _buildNowQuality(),
+              _buildBandwidth(),
+              _buildPlayState(),
             ],
           ),
         )
       )
     );
-
-
   }
   //視訊選擇
   _buildQualitySelect() {
-    return Offstage(
-      offstage: !playerInitialized,
-      child: Container(
-        margin: EdgeInsets.fromLTRB(30, 5, 30, 5),
-        padding: EdgeInsets.only(left: 10, top: 8, bottom: 8),
-        width: 150,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-              color: Colors.white,
-              width: 1.0
-          ),
+    return Container(
+      margin: EdgeInsets.fromLTRB(20, 5, 0, 5),
+      padding: EdgeInsets.only(left: 10, top: 8, bottom: 8),
+      width: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+            color: Colors.white,
+            width: 1.0
         ),
-        child: _itemList(),
       ),
+      child: _itemList(),
     );
   }
   _buildNowQuality(){
-    return Offstage(
-      offstage: !playerInitialized,
-      child:Container(
-        child:Text(widget.controller.qualityName,style:TextStyle(fontSize: 16,color:Colors.white)),
-      ),
+    return Container(
+      margin: EdgeInsets.fromLTRB(20, 0, 0, 0),
+      child:Text(widget.controller.qualityName,style:TextStyle(fontSize: 16,color:Colors.white)),
+    );
+  }
+  _buildBandwidth(){
+    return Container(
+      margin: EdgeInsets.fromLTRB(20, 0, 0, 0),
+      child:Text(sizeFormat(widget.controller.bandwidth),style:TextStyle(fontSize: 16,color:Colors.white)),
+    );
+  }
+  String sizeFormat(int size) {
+    if( size == -1 ) return '';
+    String result = ( size / (1024*1024) ).toStringAsFixed(2);
+    return '${result}MB';
+  }
+  _buildPlayState(){
+    return Container(
+      margin: EdgeInsets.fromLTRB(20, 0, 0, 0),
+      child:Text(widget.controller.playingState.toString(),style:TextStyle(fontSize: 16,color:Colors.white)),
     );
   }
 
+
+  _buildReloadBtnWidget(){
+    if( widget.controller.playingState!=null && widget.controller.playingState==PlayingState.ERROR ){
+      return  Center(
+        child:GestureDetector(
+          onTap: () async{
+            await _controller._initialize(
+              widget.url,
+            );
+          },
+          child: Icon(Icons.play_circle_outline,size:150,color:Colors.blueAccent),
+        ),
+      );
+    }
+    return Container();
+
+  }
 
 
   bool _hidePlayControl = true;
@@ -173,7 +202,7 @@ class _AWSPlayerState extends State<AWSPlayer>
   }
   void _startPlayControlTimer() {
     if (_timer != null) _timer.cancel();
-    _timer = Timer(Duration(seconds: 5), () {
+    _timer = Timer(Duration(seconds: 10), () {
       setState(() {
         _playControlOpacity = 0;
         Future.delayed(Duration(milliseconds: 500)).whenComplete(() {
@@ -210,7 +239,8 @@ class _AWSPlayerState extends State<AWSPlayer>
           Positioned(
             bottom: 0,left:0,
             child:  _buildItem(width:constraints.maxWidth)
-          )
+          ),
+          _buildReloadBtnWidget(),
         ],
       );
     });
@@ -264,6 +294,15 @@ class _AWSPlayerState extends State<AWSPlayer>
         setState(() {
           playerInitialized = _controller.initialized;
         });
+
+      print("_controller.playingState=${_controller.playingState}");
+      if( _controller.playingState!=null && _controller.playingState == PlayingState.ERROR ){
+        print("aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+      }
+
+      //print("test=${_controller.playingState}");
+
+
     });
 
     if (_controller.hasClients) {
@@ -271,6 +310,8 @@ class _AWSPlayerState extends State<AWSPlayer>
         widget.url,
       );
     }
+
+
   }
 
   @override
