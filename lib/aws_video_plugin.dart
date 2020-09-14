@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 enum PlayingState { BUFFERING, READY, IDLE, PLAYING, ERROR }
-enum AwsFit { FitWidth, FitHeight, FitFill, FitContain }
+enum AwsFit {FitFill, FitContain }
 
 
 class Size {
@@ -61,19 +61,14 @@ class _AWSPlayerState extends State<AWSPlayer>
     double viewWidth = constraints.maxWidth;
     double viewHeight = constraints.maxHeight;
     Rect pos;
-    if( fit == AwsFit.FitWidth ){
-      double height = videoWidth * viewHeight / viewWidth;
-      double dy = (height - videoHeight ) / 2;
-      pos = Rect.fromLTWH(0, dy, viewWidth , viewHeight - 2*dy);
-    } else if( fit == AwsFit.FitHeight ){
-      double width = videoHeight * viewWidth / viewHeight;
-      double dx = (width - videoWidth ) / 2;
-      pos = Rect.fromLTWH(dx, 0, viewWidth - 2*dx , viewHeight );
-    } else if( fit == AwsFit.FitContain ){
-      if( viewWidth>=viewHeight )
-        return _getRect(AwsFit.FitHeight,constraints);
-      else
-        return _getRect(AwsFit.FitWidth,constraints);
+    if( fit == AwsFit.FitContain ){
+      if( viewWidth/viewHeight < 16/9 ){
+        double height = viewWidth * videoHeight / videoWidth;
+        pos = Rect.fromLTWH(0, 0, viewWidth , height);
+      } else {
+        double width = viewHeight * videoWidth / videoHeight;
+        pos = Rect.fromLTWH(0, 0, width, viewHeight);
+      }
     } else {
       pos = Rect.fromLTWH(0, 0, viewWidth , viewHeight);
     }
@@ -222,6 +217,38 @@ class _AWSPlayerState extends State<AWSPlayer>
   Widget build(BuildContext context) {
     super.build(context);
     return LayoutBuilder(builder: (ctx, constraints){
+
+      Rect rect = _getRect(widget.fit,constraints);
+      return Container(
+        width: rect.size.width,
+        height: rect.size.height,
+        child:  Stack(
+          children: [
+            widget.placeholder ?? Container(),
+            Positioned.fromRect(
+                rect: rect,
+                child: Container(
+                    child: Offstage(
+                      offstage: !playerInitialized,
+                      child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: (){
+                            _togglePlayControl();
+                          },
+                          child: _createPlatformView()
+                      ),
+                    )
+                )),
+            Positioned(
+                bottom: 0,left:0,
+                child:  _buildItem(width:constraints.maxWidth)
+            ),
+            _buildReloadBtnWidget(),
+          ],
+        )
+      );
+
+
       return Stack(
         children: [
           widget.placeholder ?? Container(),
