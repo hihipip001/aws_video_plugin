@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:aws_video_plugin/aws_video_plugin.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 
 class VideoWidget extends StatefulWidget {
@@ -56,11 +57,17 @@ class _VideoWidgetState extends State<VideoWidget> {
     return Column(
       children: [
         Container(
-            height: 100,
-            width: 400,
+            width: 500,
+            height: 300,
             color:Colors.red,
             alignment: Alignment.center,
             child:_buildMyWidget()
+        ),
+
+        GestureDetector(
+          onTap: (){
+            _toggleFullScreen();
+          },child:Icon(Icons.event,size:54),
         )
       ],
     );
@@ -88,11 +95,27 @@ class _VideoWidgetState extends State<VideoWidget> {
 
 
   }
+  bool get _isFullScreen => MediaQuery.of(context).orientation == Orientation.landscape;
+  void _toggleFullScreen() {
+    setState(() {
+      if (_isFullScreen) {
+        ///显示状态栏，与底部虚拟操作按钮
+        SystemChrome.setEnabledSystemUIOverlays(
+            [SystemUiOverlay.top, SystemUiOverlay.bottom]);
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      } else {
+        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+        SystemChrome.setEnabledSystemUIOverlays([]);
+      }
+
+    });
+  }
 
   _buildMyWidget(){
     return AWSPlayer(
       url:
       //"rtmp://114.34.136.103/live/user3",
+      //"https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8",
       "https://ai.casttalk.me:8888/hls/user3.m3u8",
       //"https://fcc3ddae59ed.us-west-2.playback.live-video.net/api/video/v1/us-west-2.893648527354.channel.DmumNckWFTqz.m3u8",
       // "https://032ec9cda8db.us-east-1.playback.live-video.net/api/video/v1/us-east-1.270263555070.channel.nUdevTkpfffI.m3u8?token=eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJhd3M6Y2hhbm5lbC1hcm4iOiJhcm46YXdzOml2czp1cy1lYXN0LTE6MjcwMjYzNTU1MDcwOmNoYW5uZWwvblVkZXZUa3BmZmZJIiwiYXdzOmFjY2Vzcy1jb250cm9sLWFsbG93LW9yaWdpbiI6IjEwLjEwLjEwLjEwIiwiZXhwIjoxNTk5MjM5MDMzfQ.j8XRZC6ezG_XBdh8GjuOcDuaMyz2NYnxbb2CdCJ8iLorUKsNC32JVmExl-pFAkFW2ZBQ9eUSJQ4mlJt0iWewV-D7sPVu3MAL2U0qmzXZcqMrt3gLkODGDNK5TfA_HIzO",
