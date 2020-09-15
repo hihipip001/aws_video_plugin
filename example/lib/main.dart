@@ -8,7 +8,8 @@ import 'package:flutter/services.dart';
 
 
 void main() {
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
   runApp(MyApp());
 }
 
