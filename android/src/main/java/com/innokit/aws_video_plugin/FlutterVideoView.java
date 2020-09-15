@@ -80,7 +80,7 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         Log.e("TEST","FlutterVideoView init");
         if (player == null) {
             player = Player.Factory.create(activity);
-            player.setAutoQualityMode(true);
+            player.setAutoQualityMode(false);
             listener = new PlayerListener();
         }
 
@@ -89,12 +89,18 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
         textureView = new TextureView(context);
         textureView.setSurfaceTexture(textureEntry.surfaceTexture());
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+
+            boolean wasPaused = false;
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
 
                 player.setSurface(new Surface(textureView.getSurfaceTexture()));
                 Log.e("TEST","onSurfaceTextureAvailable");
                 textureView.forceLayout();
+                if (wasPaused) {
+                    player.play();
+                    wasPaused = false;
+                }
             }
 
             @Override
@@ -106,6 +112,9 @@ class FlutterVideoView implements PlatformView, MethodChannel.MethodCallHandler 
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
 
                 Log.e("TEST","onSurfaceTextureDestroyed");
+                if( player!=null ){
+                    wasPaused = true;
+                }
                 return true;
             }
 

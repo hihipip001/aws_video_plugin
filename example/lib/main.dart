@@ -4,10 +4,13 @@ import 'dart:typed_data';
 import 'package:aws_video_plugin/aws_video_plugin.dart';
 import 'package:aws_video_plugin_example/video_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 
-
-void main() => runApp(MyApp());
+void main() {
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  runApp(MyApp());
+}
 
 class MyApp extends StatefulWidget {
   @override
