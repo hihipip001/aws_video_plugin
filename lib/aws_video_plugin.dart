@@ -25,6 +25,7 @@ class Size {
 class AWSPlayer extends StatefulWidget {
   final AwsFit fit;
   final String url;
+  final bool showDetail;
   final Widget placeholder;
   final AWSPlayerController controller;
 
@@ -33,6 +34,7 @@ class AWSPlayer extends StatefulWidget {
     @required this.controller,
     @required this.url,
     this.fit = AwsFit.FitFill,
+    this.showDetail = true,
     this.placeholder,
   });
 
@@ -112,7 +114,7 @@ class _AWSPlayerState extends State<AWSPlayer>
               _buildQualitySelect(),
               _buildNowQuality(),
               _buildBandwidth(),
-              _buildPlayState(),
+              //_buildPlayState(),
             ],
           ),
         )
@@ -239,40 +241,16 @@ class _AWSPlayerState extends State<AWSPlayer>
                       ),
                     )
                 )),
-            Positioned(
+            widget.showDetail ? Positioned(
                 bottom: 0,left:0,
                 child:  _buildItem(width:constraints.maxWidth)
-            ),
+            ) : Container(),
             _buildReloadBtnWidget(),
           ],
         )
       );
 
 
-      return Stack(
-        children: [
-          widget.placeholder ?? Container(),
-          Positioned.fromRect(
-              rect: _getRect(widget.fit,constraints),
-              child: Container(
-                child: Offstage(
-                  offstage: !playerInitialized,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: (){
-                      _togglePlayControl();
-                    },
-                    child: _createPlatformView()
-                  ),
-                )
-              )),
-          Positioned(
-            bottom: 0,left:0,
-            child:  _buildItem(width:constraints.maxWidth)
-          ),
-          _buildReloadBtnWidget(),
-        ],
-      );
     });
   }
 
