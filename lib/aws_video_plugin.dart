@@ -245,7 +245,7 @@ class _AWSPlayerState extends State<AWSPlayer>
                 bottom: 0,left:0,
                 child:  _buildItem(width:constraints.maxWidth)
             ) : Container(),
-            _buildReloadBtnWidget(),
+            //_buildReloadBtnWidget(),
           ],
         )
       );
